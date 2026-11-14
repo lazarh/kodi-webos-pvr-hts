@@ -364,17 +364,13 @@ log "Packaging $OUTPUT_NAME"
 OUT_ZIP="$DIST_DIR/$OUTPUT_NAME"
 rm -f -- "$OUT_ZIP"
 
-BUILT_ZIP="$(find "$ADDONS_TARGET_DIR" -maxdepth 4 -type f -path '*/zips/*.zip' -name "${ADDON}-*.zip" -printf '%T@ %p\n' 2>/dev/null \
-  | sort -n | tail -n 1 | cut -d' ' -f2- || true)"
-
-if [[ -n "$BUILT_ZIP" && -f "$BUILT_ZIP" ]]; then
-  info "using build-system zip: $BUILT_ZIP"
-  cp -f -- "$BUILT_ZIP" "$OUT_ZIP"
-else
-  info "build-system zip not found, creating archive from installed files"
-  command -v zip >/dev/null 2>&1 || die "'zip' is required to package the add-on"
-  ( cd "$PKG_DIR/addons" && zip -qr "$OUT_ZIP" "$ADDON" )
-fi
+# Archive the installed add-on ourselves: the build system's CPack zip keeps the
+# versioned library files as symlinks, which webOS Dev Manager uploads do not
+# always preserve. Info-ZIP dereferences symlinks by default, so this archive
+# contains a real pvr.hts.so that survives being copied folder-by-folder.
+command -v zip >/dev/null 2>&1 || die "'zip' is required to package the add-on"
+( cd "$PKG_DIR/addons" && zip -qr "$OUT_ZIP" "$ADDON" )
+info "created archive from $PKG_DIR/addons/$ADDON"
 
 # Sanity check the archive layout (Kodi expects <addon-id>/addon.xml at the root)
 python3 - "$OUT_ZIP" "$ADDON" <<'PY'
@@ -395,7 +391,7 @@ PY
 if command -v unzip >/dev/null 2>&1; then
   info "addon.xml requirements stamped from the Kodi tree:"
   unzip -p "$OUT_ZIP" "$ADDON/addon.xml" \
-    | grep -oE '<import addon="[^"]+" version="[^"]+"' \
+    | grep -oE '<import [^>]*/>' \
     | sed 's/^/      /' || true
 fi
 

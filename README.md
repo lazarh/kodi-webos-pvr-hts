@@ -175,6 +175,10 @@ on a rooted TV).
 - Built for **webOS ARMv7** (the `-WEBOS-3-plus` / `arm` target of the official
   Kodi ipk), e.g. webOS 3.x–7.x TVs; it is the same target your
   `22.90.701` Kodi uses.
+- The archive contains a real `pvr.hts.so` (not a symlink), so it survives
+  uploads through webOS Dev Manager's file browser.
+- Verified stamping: `kodi.binary.instance.pvr` minversion `9.2.0` — identical
+  in every Kodi build that reports `ADDON_API 22.90.701`.
 - Do not install it on Kodi **22.0 "Piers"** (version code `21.90.902`) or on
   ARM64 builds — those need a differently built add-on (`SDK_ASSET=...-aarch64`
   plus a matching `KODI_REF` branch).
