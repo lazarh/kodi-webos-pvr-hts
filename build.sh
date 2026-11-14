@@ -150,6 +150,7 @@ install_deps() {
     git curl wget ca-certificates xz-utils bzip2 zip unzip rsync file
     python3 python3-dev python3-pip python3-setuptools
     libssl-dev zlib1g-dev libffi-dev libxml2-dev libxslt1-dev
+    libcurl4-openssl-dev libcrypt-dev libncurses-dev
   )
 
   log "Installing build dependencies (apt)"
@@ -183,6 +184,20 @@ fi
 for cmd in git make cmake tar curl unzip; do
   command -v "$cmd" >/dev/null 2>&1 || die "'$cmd' is required but not installed"
 done
+
+# Fast preflight checks for headers needed by the native (host) tool builds.
+# Without them the dependency build fails many minutes in.
+missing_headers=()
+if ! compgen -G "/usr/include/curl/curl.h" >/dev/null 2>&1 \
+   && ! compgen -G "/usr/include/*/curl/curl.h" >/dev/null 2>&1; then
+  missing_headers+=("curl.h (install libcurl4-openssl-dev / libcurl-devel)")
+fi
+if [[ ! -f /usr/include/crypt.h ]]; then
+  missing_headers+=("crypt.h (install libcrypt-dev / libxcrypt-devel)")
+fi
+if (( ${#missing_headers[@]} )); then
+  die "missing build headers: ${missing_headers[*]}"
+fi
 
 # ---------------------------------------------------------------------------
 # Step 2: webOS toolchain (buildroot-nc4, arm-webos-linux-gnueabi)
@@ -308,7 +323,12 @@ else
 fi
 
 log "Building Kodi dependencies (first run: 1-3 hours, later runs are incremental)"
-( cd "$SRC_DIR/tools/depends" && make -j"$JOBS" )
+if ! ( cd "$SRC_DIR/tools/depends" && make -j"$JOBS" ); then
+  warn "the dependency build failed."
+  warn "re-run ./build.sh to resume; to retry a single dependency run:"
+  warn "  make -C $SRC_DIR/tools/depends/target/<name> distclean"
+  exit 1
+fi
 info "dependencies built successfully"
 
 # ---------------------------------------------------------------------------
